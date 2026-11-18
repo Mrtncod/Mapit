@@ -66,7 +66,7 @@ export default function NewSpotForm({ categories }) {
     sm:h-auto sm:max-h-none sm:w-[390px]
     lg:left-[calc(var(--sidebar-width)+32px)]
     lg:right-5 lg:w-auto lg:max-w-[390px]
-    lg:transition-[left,] lg:duration-200
+    lg:transition-[left] lg:duration-200
   "
       >
         {/* Header */}
@@ -261,30 +261,30 @@ export default function NewSpotForm({ categories }) {
               </legend>
 
               <div className="grid grid-cols-2 gap-2">
-                <label className="cursor-pointer">
+                <label className="relative block cursor-pointer">
                   <input
                     type="radio"
                     name="visibility"
                     value="private"
                     defaultChecked={(v.visibility ?? "private") === "private"}
-                    className="peer sr-only"
+                    className="peer absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
                   />
 
-                  <span className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-line bg-white px-2 text-xs font-medium text-ink-soft transition peer-checked:border-accent peer-checked:bg-accent-soft peer-checked:text-accent">
+                  <span className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-line bg-white px-2 text-xs font-medium text-ink-soft transition peer-checked:border-accent peer-checked:bg-accent-soft peer-checked:text-accent peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent">
                     🔒 Private
                   </span>
                 </label>
 
-                <label className="cursor-pointer">
+                <label className="relative block cursor-pointer">
                   <input
                     type="radio"
                     name="visibility"
                     value="public"
                     defaultChecked={v.visibility === "public"}
-                    className="peer sr-only"
+                    className="peer absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
                   />
 
-                  <span className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-line bg-white px-2 text-xs font-medium text-ink-soft transition peer-checked:border-accent peer-checked:bg-accent-soft peer-checked:text-accent">
+                  <span className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-line bg-white px-2 text-xs font-medium text-ink-soft transition peer-checked:border-accent peer-checked:bg-accent-soft peer-checked:text-accent peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent">
                     🌍 Public
                   </span>
                 </label>

@@ -1,4 +1,221 @@
+
 @import "tailwindcss";
+
+/* --------------------------------------------------
+   Theme
+-------------------------------------------------- */
+
+@theme {
+  --color-canvas: #f7f6f2;
+  --color-surface: #ffffff;
+  --color-ink: #14161f;
+  --color-ink-soft: #5d6272;
+  --color-line: #e6e4dc;
+
+  --color-accent: #5b4bff;
+  --color-accent-dark: #4a3bee;
+  --color-accent-soft: #eeecff;
+
+  --color-good: #16a34a;
+  --color-bad: #dc2626;
+  --color-warning: #f59e0b;
+
+  --radius-card: 24px;
+
+  --shadow-soft:
+    0 1px 2px rgba(20, 22, 31, 0.06),
+    0 2px 8px rgba(20, 22, 31, 0.06);
+
+  --shadow-float: 0 8px 30px rgba(20, 22, 31, 0.12);
+}
+
+@theme inline {
+  --font-sans: var(--font-jakarta), system-ui, sans-serif;
+}
+
+/* --------------------------------------------------
+   Base
+-------------------------------------------------- */
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-canvas font-sans text-ink antialiased;
+  }
+
+  button,
+  [role="button"] {
+    cursor: pointer;
+  }
+}
+
+/* --------------------------------------------------
+   Shared components
+-------------------------------------------------- */
+
+@layer components {
+  .btn {
+    @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-transparent px-6 font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply bg-accent text-white hover:bg-accent-dark;
+  }
+
+  .btn-secondary {
+    @apply border-line bg-surface text-ink hover:bg-white/60;
+  }
+
+  .field {
+    @apply min-h-12 w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 outline-none focus:border-accent focus:ring-2 focus:ring-accent/30;
+  }
+}
+
+/* --------------------------------------------------
+   Mobile drawer animations
+-------------------------------------------------- */
+
+@keyframes mapit-drawer-enter {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes mapit-backdrop-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.mapit-mobile-drawer {
+  animation: mapit-drawer-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.mapit-mobile-backdrop {
+  animation: mapit-backdrop-enter 220ms ease-out both;
+}
+
+
+/* --------------------------------------------------
+   Map experience popup
+-------------------------------------------------- */
+
+.mapit-experience-popup .leaflet-popup-content-wrapper {
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #e8e6de;
+  border-radius: 15px;
+  background: #fff;
+  box-shadow: 0 6px 24px rgba(20, 22, 31, 0.13);
+}
+
+.mapit-experience-popup .leaflet-popup-tip {
+  background: #fff;
+}
+
+.mapit-experience-popup .leaflet-popup-content {
+  box-sizing: border-box;
+  max-width: calc(100vw - 32px);
+  max-height: min(48vh, 380px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  margin: 0;
+  line-height: 1.4;
+  scrollbar-width: thin;
+  scrollbar-color: #d6d6d6 transparent;
+}
+
+.mapit-experience-popup .leaflet-popup-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.mapit-experience-popup .leaflet-popup-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mapit-experience-popup .leaflet-popup-content::-webkit-scrollbar-thumb {
+  border-radius: 10px;
+  background: #d6d6d6;
+}
+
+.mapit-experience-popup .leaflet-popup-close-button {
+  top: 7px !important;
+  right: 7px !important;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 20px !important;
+  height: 24px !important;
+  border-radius: 8px;
+  background: #f5f4ef;
+  color: #686b70 !important;
+  font-size: 16px !important;
+  line-height: 24px !important;
+}
+
+.mapit-experience-popup .leaflet-popup-close-button:hover {
+  background: #eeece5;
+  color: #14161f !important;
+}
+
+/* Popup list and navigation */
+
+.mapit-popup-list,
+.mapit-popup-detail {
+  min-width: 0;
+  background: #fff;
+}
+
+.mapit-popup-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border-bottom: 1px solid #e6e4dc;
+  background: #fff;
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .mapit-experience-popup .leaflet-popup-content {
+    max-width: calc(100vw - 32px);
+    max-height: min(46vh, 340px);
+  }
+}
+
+/* Reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  .mapit-mobile-drawer,
+  .mapit-mobile-backdrop {
+    animation: none;
+  }
+
+  .mapit-experience-popup .leaflet-popup-close-button {
+    transition: none;
+  }
+}
+
+
+
+
+
+/* @import "tailwindcss";
 
 @theme {
   --color-canvas: #f7f6f2;
@@ -86,37 +303,105 @@
   }
 }
 
-/* Experience card */
+/* Map experience popup */
 
 .mapit-experience-popup .leaflet-popup-content-wrapper {
   padding: 0;
   overflow: hidden;
-  border: 1px solid #e6e4dc;
-  border-radius: 13px;
+  border: 1px solid #e8e6de;
+  border-radius: 16px;
   background: #fff;
-  box-shadow: 0 5px 18px rgba(20, 22, 31, 0.12);
+  box-shadow: 0 8px 28px rgba(20, 22, 31, 0.14);
 }
 
 .mapit-experience-popup .leaflet-popup-tip {
   background: #fff;
 }
 
-.mapit-experience-popup .leaflet-popup-close-button {
-  top: 4px !important;
-  right: 5px !important;
-  color: #8b8d98 !important;
-  font-size: 16px !important;
-}
-
 .mapit-experience-popup .leaflet-popup-content {
-  width: 180px;
-  max-width: calc(100vw - 70px);
+  box-sizing: border-box;
+  width: 300px;
+  max-width: calc(100vw - 48px);
+  max-height: min(58vh, 440px);
+  overflow-x: hidden;
+  overflow-y: auto;
   margin: 0;
   line-height: 1.4;
+  scrollbar-width: thin;
+  scrollbar-color: #d6d6d6 transparent;
 }
 
-@media (min-width: 640px) {
+.mapit-experience-popup .leaflet-popup-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.mapit-experience-popup .leaflet-popup-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mapit-experience-popup .leaflet-popup-content::-webkit-scrollbar-thumb {
+  border-radius: 10px;
+  background: #d6d6d6;
+}
+
+.mapit-experience-popup .leaflet-popup-close-button {
+  top: 8px !important;
+  right: 8px !important;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 25px !important;
+  height: 25px !important;
+  border-radius: 8px;
+  background: #f5f4ef;
+  color: #686b70 !important;
+  font-size: 16px !important;
+  line-height: 25px !important;
+}
+
+.mapit-experience-popup .leaflet-popup-close-button:hover {
+  background: #eeece5;
+  color: #14161f !important;
+}
+
+/* Popup list and navigation */
+
+.mapit-popup-list {
+  min-width: 0;
+  background: #fff;
+}
+
+.mapit-popup-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  border-bottom: 1px solid #e6e4dc;
+  background: #fff;
+}
+
+.mapit-popup-detail {
+  background: #fff;
+}
+
+/* Mobile */
+
+@media (max-width: 480px) {
   .mapit-experience-popup .leaflet-popup-content {
-    width: 200px;
+    width: 280px;
+    max-width: calc(100vw - 48px);
+    max-height: min(55vh, 400px);
   }
 }
+
+/* Reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  .mapit-experience-popup .leaflet-popup-close-button {
+    transition: none;
+  }
+} */

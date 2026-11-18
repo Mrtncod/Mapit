@@ -3,7 +3,7 @@
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -16,7 +16,15 @@ import {
   useMap,
   useMapEvents,
 } from "react-leaflet";
-import { Search, MapPin, Route, LocateFixed, X } from "lucide-react";
+import {
+  Search,
+  MapPin,
+  Route,
+  LocateFixed,
+  X,
+  Clock3,
+  Mountain,
+} from "lucide-react";
 import { useGeolocation } from "@/lib/useGeolocation";
 import ReportForm from "@/components/ReportForm";
 import MapLoading from "./MapLoading";
@@ -31,41 +39,96 @@ const HANNOVER = [52.3759, 9.732];
 
 const iconCache = new Map();
 
-function pinIcon(sentiment, emoji, isMine = false) {
-  const key = `${sentiment}-${emoji}-${isMine}`;
+const LOCATION_GROUP_RADIUS_METERS = 15;
+
+function distanceBetweenMeters(lat1, lng1, lat2, lng2) {
+  const toRadians = (degrees) => (degrees * Math.PI) / 180;
+  const earthRadius = 6371000;
+
+  const dLat = toRadians(lat2 - lat1);
+  const dLng = toRadians(lng2 - lng1);
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRadians(lat1)) *
+      Math.cos(toRadians(lat2)) *
+      Math.sin(dLng / 2) ** 2;
+
+  return 2 * earthRadius * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function pinIcon(sentiment, emoji, isMine = false, count = 1) {
+  const key = `${sentiment}-${emoji}-${isMine}-${count}`;
 
   if (!iconCache.has(key)) {
     const size = isMine ? 38 : 34;
+    const width = size + 12;
+    const height = size + 8;
     const anchor = size / 2;
 
     const ownershipStyle = isMine
       ? "box-shadow:0 0 0 3px #5b4bff,0 2px 7px rgba(0,0,0,.3);"
       : "box-shadow:0 1px 4px rgba(0,0,0,.4);";
 
+    const countBadge =
+      count > 1
+        ? `
+          <span style="
+            position:absolute;
+            top:0;
+            right:0;
+            min-width:19px;
+            height:19px;
+            padding:0 4px;
+            border-radius:999px;
+            background:#262626;
+            color:#fff;
+            border:2px solid #fff;
+            font-size:10px;
+            font-weight:700;
+            line-height:15px;
+            text-align:center;
+            box-shadow:0 1px 4px rgba(0,0,0,.25);
+            transform:translate(20%,-15%);
+          ">${count > 99 ? "99+" : count}</span>
+        `
+        : "";
+
     iconCache.set(
       key,
       L.divIcon({
         className: "",
-        iconSize: [size, size],
-        iconAnchor: [anchor, size],
-        popupAnchor: [0, -size],
+        iconSize: [width, height],
+        iconAnchor: [anchor, height],
+        popupAnchor: [0, -height],
+
         html: `
           <div style="
-            background:${COLORS[sentiment] || COLORS.warning};
-            width:${size}px;
-            height:${size}px;
-            border-radius:50% 50% 50% 0;
-            transform:rotate(-45deg);
-            border:2px solid #fff;
-            ${ownershipStyle}
-            display:flex;
-            align-items:center;
-            justify-content:center;
+            position:relative;
+            width:${width}px;
+            height:${height}px;
           ">
-            <span style="
-              transform:rotate(45deg);
-              font-size:16px;
-            ">${emoji || "📍"}</span>
+            <div style="
+              position:absolute;
+              left:0;
+              bottom:0;
+              background:${COLORS[sentiment] || COLORS.warning};
+              width:${size}px;
+              height:${size}px;
+              border-radius:50% 50% 50% 0;
+              transform:rotate(-45deg);
+              border:2px solid #fff;
+              ${ownershipStyle}
+              display:flex;
+              align-items:center;
+              justify-content:center;
+            ">
+              <span style="
+                transform:rotate(45deg);
+                font-size:16px;
+              ">${emoji || "📍"}</span>
+            </div>
+            ${countBadge}
           </div>
         `,
       }),
@@ -102,37 +165,49 @@ function FlyToUser({ position, trigger }) {
   return null;
 }
 
-function FocusExperience({ experiences, focusExperienceId, markerRefs }) {
+function FocusExperience({
+  experiences,
+  experienceGroupKeys,
+  locationGroups,
+  focusExperienceId,
+  markerRefs,
+}) {
   const map = useMap();
   const lastFocusedId = useRef(null);
 
   useEffect(() => {
-    // Allow the same experience to be selected again after clearing focus.
     if (!focusExperienceId) {
       lastFocusedId.current = null;
       return;
     }
 
-    // Do not repeat the animation when nearby data changes.
     if (lastFocusedId.current === focusExperienceId) return;
 
     const experience = experiences.find(
       (item) => item.id === focusExperienceId,
     );
 
-    const marker = markerRefs.current.get(focusExperienceId);
+    if (!experience) return;
 
-    if (!experience || !marker) return;
+    const groupKey = experienceGroupKeys.get(experience.id);
+    const group = locationGroups.find((item) => item.key === groupKey);
+    const marker = markerRefs.current.get(groupKey);
 
-    // Mark it as focused before starting the animation.
+    if (!group || !marker) return;
+
     lastFocusedId.current = focusExperienceId;
 
-    map.flyTo([experience.lat, experience.lng], 16, {
-      duration: 1,
-    });
+    map.flyTo([group.lat, group.lng], 16, { duration: 1 });
 
     marker.openPopup();
-  }, [experiences, focusExperienceId, markerRefs, map]);
+  }, [
+    experiences,
+    experienceGroupKeys,
+    locationGroups,
+    focusExperienceId,
+    markerRefs,
+    map,
+  ]);
 
   return null;
 }
@@ -217,6 +292,334 @@ function statusText({ status, position }) {
     : `Location ready · ±${accuracy} m`;
 }
 
+function formatRelativeDate(value) {
+  if (!value) return "";
+
+  const date = new Date(value);
+  const timestamp = date.getTime();
+
+  if (!Number.isFinite(timestamp)) return "";
+
+  const seconds = (timestamp - Date.now()) / 1000;
+
+  if (Math.abs(seconds) < 60) return "Just now";
+
+  const units = [
+    { unit: "year", seconds: 31536000 },
+    { unit: "month", seconds: 2592000 },
+    { unit: "week", seconds: 604800 },
+    { unit: "day", seconds: 86400 },
+    { unit: "hour", seconds: 3600 },
+    { unit: "minute", seconds: 60 },
+  ];
+
+  const formatter = new Intl.RelativeTimeFormat("en", {
+    numeric: "auto",
+  });
+
+  const selectedUnit = units.find(
+    ({ seconds: unitSeconds }) => Math.abs(seconds) >= unitSeconds,
+  );
+
+  if (!selectedUnit) return "Just now";
+
+  const valueInUnits = Math.round(seconds / selectedUnit.seconds);
+
+  return formatter.format(valueInUnits, selectedUnit.unit);
+}
+
+function formatDistance(meters) {
+  if (meters == null) return null;
+
+  const distance = Number(meters);
+
+  if (!Number.isFinite(distance) || distance <= 0) return null;
+
+  return distance >= 1000
+    ? `${(distance / 1000).toFixed(1)} km`
+    : `${Math.round(distance)} m`;
+}
+
+function formatDuration(seconds) {
+  if (seconds == null) return null;
+
+  const value = Number(seconds);
+
+  if (!Number.isFinite(value) || value <= 0) return null;
+
+  const totalMinutes = Math.round(value / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours && minutes) return `${hours}h ${minutes}m`;
+  if (hours) return `${hours}h`;
+
+  return `${totalMinutes} min`;
+}
+
+function formatElevation(meters) {
+  if (meters == null) return null;
+
+  const value = Number(meters);
+
+  if (!Number.isFinite(value) || value <= 0) return null;
+
+  return `${Math.round(value)} m`;
+}
+
+function ExperiencePopupCard({
+  experience: e,
+  expandedDescriptions,
+  setExpandedDescriptions,
+}) {
+  const isExpanded = Boolean(expandedDescriptions[e.id]);
+
+  const sentimentStyles = {
+    good: "bg-good/10 text-good",
+    bad: "bg-bad/10 text-bad",
+    warning: "bg-warning/10 text-[#936313]",
+  };
+
+  const sentimentLabels = {
+    good: "Good",
+    bad: "Bad",
+    warning: "Warning",
+  };
+
+  const author = e.author_name || "Anonymous";
+  const postedAt = formatRelativeDate(e.created_at);
+
+  return (
+    <article className="min-w-0 bg-white p-2.5">
+      <div className="grid gap-2">
+        {/* Category and sentiment */}
+        <div className="flex min-w-0 items-start justify-between gap-2 pr-6">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="flex w-12 shrink-0 flex-col items-center gap-1">
+              <span className="grid size-8 place-items-center rounded-xl bg-accent-soft text-base">
+                {e.category_icon || "📍"}
+              </span>
+
+              <span className="w-full text-center text-[10px] font-semibold leading-tight text-accent [overflow-wrap:anywhere]">
+                {e.category_label || "Experience"}
+              </span>
+            </div>
+
+            {e.is_mine && (
+              <span className="self-start rounded-full bg-accent-soft px-2 py-1 text-[9px] font-bold text-accent">
+                Yours
+              </span>
+            )}
+          </div>
+
+          <span
+            className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${
+              sentimentStyles[e.sentiment] || sentimentStyles.warning
+            }`}
+          >
+            {sentimentLabels[e.sentiment] || "Warning"}
+          </span>
+        </div>
+
+        {/* Title */}
+        {e.title && (
+          <h3 className="break-words text-[13px] font-bold leading-snug text-ink">
+            {e.title}
+          </h3>
+        )}
+
+        {/* Optional place name */}
+        {e.place_name && (
+          <div className="flex min-w-0 items-center gap-1 text-[11px] text-ink-soft">
+            <MapPin className="size-3 shrink-0" />
+            <span className="break-words">{e.place_name}</span>
+          </div>
+        )}
+
+        {/* Description */}
+        {e.description && (
+          <div className="min-w-0">
+            <p
+              className={`break-words text-[12px] leading-relaxed text-ink-soft [overflow-wrap:anywhere] ${
+                isExpanded ? "whitespace-pre-wrap" : "line-clamp-2"
+              }`}
+            >
+              {e.description}
+            </p>
+
+            {e.description.length > 100 && (
+              <button
+                type="button"
+                onClick={() =>
+                  setExpandedDescriptions((previous) => ({
+                    ...previous,
+                    [e.id]: !previous[e.id],
+                  }))
+                }
+                className="mt-1 text-[11px] font-bold text-accent hover:text-accent-dark"
+              >
+                {isExpanded ? "Show less ↑" : "Read more ↓"}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Author and date */}
+        <div className="flex min-w-0 items-center justify-between gap-2 border-t border-line pt-1.5">
+          <p className="min-w-0 truncate text-[10px] font-semibold text-ink">
+            By {author}
+          </p>
+
+          {postedAt && (
+            <p className="shrink-0 text-[10px] text-ink-soft">{postedAt}</p>
+          )}
+        </div>
+
+        {/* Report experience */}
+        {!e.is_mine && e.visibility === "public" && (
+          <div className="border-t border-line pt-2 [&_button]:!text-bad [&_button:hover]:!text-red-700 [&_svg]:text-bad">
+            <ReportForm id={e.id} />
+          </div>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function LocationPopup({
+  group,
+  expandedDescriptions,
+  setExpandedDescriptions,
+}) {
+  const [selectedId, setSelectedId] = useState(null);
+  const [showAll, setShowAll] = useState(false);
+
+  // A location with one experience opens its full details immediately.
+  if (group.experiences.length === 1) {
+    return (
+      <div className="mapit-popup-list mapit-popup-detail">
+        <ExperiencePopupCard
+          experience={group.experiences[0]}
+          expandedDescriptions={expandedDescriptions}
+          setExpandedDescriptions={setExpandedDescriptions}
+        />
+      </div>
+    );
+  }
+
+  const selectedExperience = group.experiences.find(
+    (experience) => experience.id === selectedId,
+  );
+
+  // Detail view: show the original full experience card.
+  if (selectedExperience) {
+    return (
+      <div className="mapit-popup-list">
+        <div className="mapit-popup-header">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setSelectedId(null);
+            }}
+            className="text-[11px] font-semibold text-accent hover:text-accent-dark"
+          >
+            ← All experiences
+          </button>
+        </div>
+
+        <ExperiencePopupCard
+          experience={selectedExperience}
+          expandedDescriptions={expandedDescriptions}
+          setExpandedDescriptions={setExpandedDescriptions}
+        />
+      </div>
+    );
+  }
+
+  const visibleExperiences = showAll
+    ? group.experiences
+    : group.experiences.slice(0, 3);
+
+  return (
+    <div className="mapit-popup-list">
+      <div className="mapit-popup-header">
+        <div>
+          <h3 className="text-[13px] font-bold text-ink">Experiences here</h3>
+          <p className="text-[10px] text-ink-soft">
+            Discover what people shared
+          </p>
+        </div>
+
+        <span className="shrink-0 rounded-full bg-accent-soft px-2.5 py-1 text-[10px] font-bold text-accent">
+          {group.experiences.length}
+        </span>
+      </div>
+
+      <div className="grid">
+        {visibleExperiences.map((experience) => (
+          <button
+            key={experience.id}
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setSelectedId(experience.id);
+            }}
+            className="flex w-full min-w-0 items-center gap-2.5 border-b border-line p-2.5 text-left transition hover:bg-canvas"
+          >
+            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-canvas text-base">
+              {experience.category_icon || "📍"}
+            </span>
+
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[12px] font-bold text-ink">
+                {experience.title}
+              </span>
+
+              <span className="mt-1 block truncate text-[10px] text-ink-soft">
+                {experience.category_label || "Experience"}
+                {" · "}
+                {experience.kind === "route" ? "Route" : "Place"}
+              </span>
+
+              <span className="mt-1 block truncate text-[10px] text-ink-soft">
+                By {experience.author_name || "Anonymous"}
+                {" · "}
+                {formatRelativeDate(experience.created_at)}
+              </span>
+            </span>
+
+            <span
+              className={`size-2 shrink-0 rounded-full ${
+                experience.sentiment === "good"
+                  ? "bg-good"
+                  : experience.sentiment === "bad"
+                    ? "bg-bad"
+                    : "bg-warning"
+              }`}
+              title={experience.sentiment}
+            />
+
+            <span className="shrink-0 text-ink-soft">›</span>
+          </button>
+        ))}
+      </div>
+
+      {group.experiences.length > 3 && (
+        <button
+          type="button"
+          onClick={() => setShowAll((value) => !value)}
+          className="w-full px-3 py-3 text-center text-[11px] font-bold text-accent transition hover:bg-canvas"
+        >
+          {showAll
+            ? "Show fewer experiences"
+            : `See all ${group.experiences.length} experiences`}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function MapView({
   categories = [],
   initialExperiences = [],
@@ -233,6 +636,123 @@ export default function MapView({
   const [category, setCategory] = useState("");
   const [mapReady, setMapReady] = useState(false);
   const [expandedDescriptions, setExpandedDescriptions] = useState({});
+
+  const { locationGroups, experienceGroupKeys } = useMemo(() => {
+    const groups = [];
+    const groupsByPlaceRef = new Map();
+    const experiencesWithoutPlaceRef = [];
+
+    // First, group experiences that share a known place reference.
+    experiences.forEach((experience, index) => {
+      const placeRef = experience.place_ref
+        ? String(experience.place_ref)
+        : null;
+
+      if (!placeRef) {
+        experiencesWithoutPlaceRef.push({ experience, index });
+        return;
+      }
+
+      let group = groupsByPlaceRef.get(placeRef);
+
+      if (!group) {
+        group = {
+          key: `place:${placeRef}`,
+          placeRef,
+          anchorLat: Number(experience.lat),
+          anchorLng: Number(experience.lng),
+          order: index,
+          experiences: [],
+        };
+
+        groupsByPlaceRef.set(placeRef, group);
+        groups.push(group);
+      }
+
+      group.experiences.push(experience);
+    });
+
+    // Then group experiences without a place reference by proximity.
+    for (const { experience, index } of experiencesWithoutPlaceRef) {
+      const lat = Number(experience.lat);
+      const lng = Number(experience.lng);
+
+      let closestGroup = null;
+      let closestDistance = LOCATION_GROUP_RADIUS_METERS;
+
+      for (const group of groups) {
+        const distance = distanceBetweenMeters(
+          lat,
+          lng,
+          group.anchorLat,
+          group.anchorLng,
+        );
+
+        if (distance <= closestDistance) {
+          closestDistance = distance;
+          closestGroup = group;
+        }
+      }
+
+      if (closestGroup) {
+        closestGroup.experiences.push(experience);
+      } else {
+        groups.push({
+          key: `location:${experience.id}`,
+          placeRef: null,
+          anchorLat: lat,
+          anchorLng: lng,
+          order: index,
+          experiences: [experience],
+        });
+      }
+    }
+
+    // Preserve the original experience ordering.
+    groups.sort((a, b) => a.order - b.order);
+
+    const experienceGroupKeys = new Map();
+
+    const locationGroups = groups.map((group) => {
+      const first = group.experiences[0];
+
+      group.experiences.forEach((experience) => {
+        experienceGroupKeys.set(experience.id, group.key);
+      });
+
+      // Use the average position for the marker.
+      const lat =
+        group.experiences.reduce(
+          (total, experience) => total + Number(experience.lat),
+          0,
+        ) / group.experiences.length;
+
+      const lng =
+        group.experiences.reduce(
+          (total, experience) => total + Number(experience.lng),
+          0,
+        ) / group.experiences.length;
+
+      const sameCategory = group.experiences.every(
+        (experience) => experience.category_icon === first.category_icon,
+      );
+
+      const sameSentiment = group.experiences.every(
+        (experience) => experience.sentiment === first.sentiment,
+      );
+
+      return {
+        ...group,
+        lat,
+        lng,
+        icon: sameCategory ? first.category_icon : "📍",
+        sentiment: sameSentiment ? first.sentiment : "warning",
+        isMine: group.experiences.every((experience) => experience.is_mine),
+      };
+    });
+
+    return { locationGroups, experienceGroupKeys };
+  }, [experiences]);
 
   const handleNearbyData = useCallback(
     (nearbyExperiences) => {
@@ -298,6 +818,8 @@ export default function MapView({
         <FlyToUser position={position} trigger={recenter} />
         <FocusExperience
           experiences={experiences}
+          experienceGroupKeys={experienceGroupKeys}
+          locationGroups={locationGroups}
           focusExperienceId={focusExperienceId}
           markerRefs={markerRefs}
         />
@@ -333,127 +855,53 @@ export default function MapView({
           </>
         )}
 
-        {experiences.map((e) => (
-          <div key={e.id}>
-            {e.kind === "route" && e.path && (
-              <Polyline
-                positions={e.path.coordinates.map(([lng, lat]) => [lat, lng])}
-                pathOptions={{
-                  color: COLORS[e.sentiment],
-                  weight: 4,
-                }}
-              />
-            )}
-
-            <Marker
-              ref={(marker) => {
-                if (marker) {
-                  markerRefs.current.set(e.id, marker);
-                } else {
-                  markerRefs.current.delete(e.id);
-                }
+        {/* Route lines remain individual */}
+        {experiences.map((e) =>
+          e.kind === "route" && e.path ? (
+            <Polyline
+              key={`route-${e.id}`}
+              positions={e.path.coordinates.map(([lng, lat]) => [lat, lng])}
+              pathOptions={{
+                color: COLORS[e.sentiment] || COLORS.warning,
+                weight: 4,
               }}
-              position={[e.lat, e.lng]}
-              icon={pinIcon(e.sentiment, e.category_icon, e.is_mine)}
+            />
+          ) : null,
+        )}
+
+        {/* One marker per unique location */}
+        {locationGroups.map((group) => (
+          <Marker
+            key={group.key}
+            ref={(marker) => {
+              if (marker) {
+                markerRefs.current.set(group.key, marker);
+              } else {
+                markerRefs.current.delete(group.key);
+              }
+            }}
+            position={[group.lat, group.lng]}
+            icon={pinIcon(
+              group.sentiment,
+              group.icon,
+              group.isMine,
+              group.experiences.length,
+            )}
+          >
+            <Popup
+              className="mapit-experience-popup"
+              autoPan={false}
+              closeOnClick={true}
+              minWidth={150}
+              maxWidth={190}
             >
-              <Popup className="mapit-experience-popup" autoPan={false}>
-                <div className="grid w-full gap-2 p-2 sm:gap-2.5 sm:p-2.5">
-                  {/* Category */}
-                  <div className="flex items-center justify-between gap-1.5">
-                    <div className="flex min-w-0 flex-col gap-0.5">
-                      <span className="text-[9px] font-bold uppercase tracking-wider text-ink-soft/70 ">
-                        Category
-                      </span>
-                      <span className="truncate text-[12px] font-semibold text-[#416448] ">
-                        {e.category_icon || "📍"} {e.category_label}
-                      </span>
-                    </div>
-
-                    {e.is_mine && (
-                      <span className="shrink-0 rounded-full bg-accent-soft px-1.5 py-0.5 text-[9px] font-bold text-accent sm:text-[8px]">
-                        Yours
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Title */}
-                  <div className="flex min-w-0 flex-col gap-0.5">
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-ink-soft/70 sm:text-[8px]">
-                      Title
-                    </span>
-                    <h3 className="line-clamp-2 text-[12px] font-bold leading-snug text-ink sm:text-xs">
-                      {e.title}
-                    </h3>
-                  </div>
-
-                  {/* Description */}
-                  {e.description && (
-                    <div className="flex min-w-0 flex-col gap-0.5">
-                      <span className="text-[9px] font-bold uppercase tracking-wider text-ink-soft/70 sm:text-[8px]">
-                        Description
-                      </span>
-
-                      <p
-                        className={`text-[10px] font-semibold tracking-wide leading-relaxed text-ink-soft ${
-                          expandedDescriptions[e.id] ? "" : "line-clamp-2"
-                        }`}
-                      >
-                        {e.description}
-                      </p>
-
-                      {e.description.length > 100 && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setExpandedDescriptions((previous) => ({
-                              ...previous,
-                              [e.id]: !previous[e.id],
-                            }))
-                          }
-                          className="mt-0.5 w-fit text-[10px] font-bold text-accent transition hover:text-accent-dark"
-                        >
-                          {expandedDescriptions[e.id] ? "See less" : "See more"}
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Sentiment and author */}
-                  <div className="grid grid-cols-2 gap-2 border-t border-line pt-1.5">
-                    <div className="flex min-w-0 flex-col gap-1">
-                      <span className="text-[8px] font-bold uppercase tracking-wider text-ink-soft/70 sm:text-[8px]">
-                        Sentiment
-                      </span>
-                      <span
-                        className={`w-fit rounded-full px-1.5 py-0.5 text-[9px] font-bold capitalize sm:text-[9px] ${
-                          e.sentiment === "good"
-                            ? "bg-good/10 text-good"
-                            : e.sentiment === "bad"
-                              ? "bg-bad/10 text-bad"
-                              : "bg-warning/10 text-[#936313]"
-                        }`}
-                      >
-                        {e.sentiment}
-                      </span>
-                    </div>
-
-                    <div className="flex min-w-0 flex-col gap-1 text-right">
-                      <span className="text-[8px] font-bold uppercase tracking-wider text-ink-soft/70 sm:text-[8px]">
-                        Shared by
-                      </span>
-                      <span className="truncate text-[9px] font-semibold capitalize text-ink">
-                        {e.author_name}
-                      </span>
-                    </div>
-                  </div>
-
-                  {!e.is_mine && e.visibility === "public" && (
-                    <ReportForm id={e.id} />
-                  )}
-                </div>
-              </Popup>
-            </Marker>
-          </div>
+              <LocationPopup
+                group={group}
+                expandedDescriptions={expandedDescriptions}
+                setExpandedDescriptions={setExpandedDescriptions}
+              />
+            </Popup>
+          </Marker>
         ))}
       </MapContainer>
 

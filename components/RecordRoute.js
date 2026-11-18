@@ -448,40 +448,46 @@ export default function RecordRoute({ categories }) {
                   </legend>
 
                   <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-                    <label
-                      className={`flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-2 text-[11px] font-semibold transition sm:min-h-11 sm:gap-2 sm:rounded-xl sm:px-3 sm:text-xs ${
-                        visibility === "private"
-                          ? "border-accent bg-accent-soft text-accent"
-                          : "border-line bg-white text-ink-soft"
-                      }`}
-                    >
+                    <label className="relative block cursor-pointer">
                       <input
                         type="radio"
                         name="visibility"
                         value="private"
                         checked={visibility === "private"}
                         onChange={() => setVisibility("private")}
-                        className="accent-current"
+                        className="peer absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
                       />
-                      Private
+
+                      <span
+                        className={`flex min-h-8 items-center justify-center gap-1.5 rounded-lg border px-2 text-[11px] font-semibold transition sm:min-h-11 sm:gap-2 sm:rounded-xl sm:px-3 sm:text-xs ${
+                          visibility === "private"
+                            ? "border-accent bg-accent-soft text-accent"
+                            : "border-line bg-white text-ink-soft"
+                        } peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent`}
+                      >
+                        🔒 Private
+                      </span>
                     </label>
 
-                    <label
-                      className={`flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-2 text-[11px] font-semibold transition sm:min-h-11 sm:gap-2 sm:rounded-xl sm:px-3 sm:text-xs ${
-                        visibility === "public"
-                          ? "border-accent bg-accent-soft text-accent"
-                          : "border-line bg-white text-ink-soft"
-                      }`}
-                    >
+                    <label className="relative block cursor-pointer">
                       <input
                         type="radio"
                         name="visibility"
                         value="public"
                         checked={visibility === "public"}
                         onChange={() => setVisibility("public")}
-                        className="accent-current"
+                        className="peer absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
                       />
-                      Public
+
+                      <span
+                        className={`flex min-h-8 items-center justify-center gap-1.5 rounded-lg border px-2 text-[11px] font-semibold transition sm:min-h-11 sm:gap-2 sm:rounded-xl sm:px-3 sm:text-xs ${
+                          visibility === "public"
+                            ? "border-accent bg-accent-soft text-accent"
+                            : "border-line bg-white text-ink-soft"
+                        } peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent`}
+                      >
+                        🌍 Public
+                      </span>
                     </label>
                   </div>
 
